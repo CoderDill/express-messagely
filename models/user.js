@@ -1,6 +1,7 @@
 /** User class for message.ly */
 
 const { client } = require("../db");
+const ExpressError = require("../expressError");
 
 /** User of the site. */
 
@@ -29,7 +30,24 @@ class User {
 
   /** Authenticate: is this username/password valid? Returns boolean. */
 
-  static async authenticate(username, password) {}
+  static async authenticate(username, password) {
+    if (!username || !password) {
+      throw new ExpressError("Username and password required", 400)
+    }
+    const result = await db.query(
+      `SELECT username, password
+      FROM users
+      where Username = $1`,
+      [username]
+    )
+    const user = result.rows[0];
+    if (user) {
+      if (await bcrypt.compare(password, user.password)) {
+        return res.json({message: "Loggin in!"})
+      }
+    }
+    throw new ExpressError("Invalid username and/or password", 400)
+  }
 
   /** Update last_login_at for user */
 
