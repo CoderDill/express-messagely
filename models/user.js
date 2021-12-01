@@ -2,7 +2,9 @@
 
 const { client } = require("../db");
 const ExpressError = require("../expressError");
-
+const bcrypt = require("bcrypt");
+const { BCRYPT_WORK_FACTOR } = require("../config");
+const db = require("../db");
 /** User of the site. */
 
 class User {
@@ -11,7 +13,7 @@ class User {
    */
 
   static async register({ username, password, first_name, last_name, phone }) {
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
+    let hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
     const result = await db.query(
       `INSERT INTO users (
               username,
@@ -31,22 +33,13 @@ class User {
   /** Authenticate: is this username/password valid? Returns boolean. */
 
   static async authenticate(username, password) {
-    if (!username || !password) {
-      throw new ExpressError("Username and password required", 400);
-    }
     const result = await db.query(
-      `SELECT username, password
-      FROM users
-      where Username = $1`,
+      "SELECT password FROM users WHERE username = $1",
       [username]
     );
-    const user = result.rows[0];
-    if (user) {
-      if (await bcrypt.compare(password, user.password)) {
-        return res.json({ message: "Loggin in!" });
-      }
-    }
-    throw new ExpressError("Invalid username and/or password", 400);
+    let user = result.rows[0];
+
+    return user && (await bcrypt.compare(password, user.password));
   }
 
   /** Update last_login_at for user */
@@ -69,17 +62,16 @@ class User {
    * [{username, first_name, last_name, phone}, ...] */
 
   static async all() {
-    const results = await db.query(`
-      SELECT username,
+    const result = await db.query(
+      `SELECT username,
                 first_name,
                 last_name,
-                phone,
-                join_at,
-                last_login_at
+                phone
             FROM users
-            ORDER BY username
-    `);
-    return results.rows;
+            ORDER BY username`
+    );
+
+    return result.rows;
   }
 
   /** Get: get user by username
